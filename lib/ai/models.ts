@@ -1,4 +1,4 @@
-export const DEFAULT_CHAT_MODEL = "moonshotai/kimi-k2-0905";
+export const DEFAULT_CHAT_MODEL = "openai/gpt-5.3-codex";
 
 export const titleModel = {
   id: "mistral/mistral-small",
