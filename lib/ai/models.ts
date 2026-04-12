@@ -25,6 +25,13 @@ export type ChatModel = {
 
 export const chatModels: ChatModel[] = [
   {
+    id: "openai/gpt-5.3-codex",
+    name: "GPT-5.3 Codex",
+    provider: "openai",
+    description: "OpenAI's code-focused model with tool use",
+    gatewayOrder: ["openai"],
+  },
+  {
     id: "deepseek/deepseek-v3.2",
     name: "DeepSeek V3.2",
     provider: "deepseek",
