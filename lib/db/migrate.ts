@@ -1,11 +1,20 @@
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { config } from "dotenv";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 
-config({
-  path: ".env.local",
-});
+const envPath = resolve(".env");
+const envLocalPath = resolve(".env.local");
+
+if (existsSync(envPath)) {
+  config({ path: envPath });
+}
+
+if (existsSync(envLocalPath)) {
+  config({ path: envLocalPath, override: true });
+}
 
 const runMigrate = async () => {
   if (!process.env.POSTGRES_URL) {
