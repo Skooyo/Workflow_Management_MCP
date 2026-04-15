@@ -6,10 +6,14 @@ import {
   generateId,
   stepCountIs,
   streamText,
+  tool,
 } from "ai";
 import { checkBotId } from "botid/server";
 import { after } from "next/server";
 import { createResumableStreamContext } from "resumable-stream";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { z } from "zod";
 import { auth, type UserType } from "@/app/(auth)/auth";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
 import {
@@ -47,6 +51,24 @@ import { type PostRequestBody, postRequestBodySchema } from "./schema";
 
 export const maxDuration = 60;
 
+const MCP_SERVER_URL = process.env.MCP_SERVER_URL || "http://127.0.0.1:8001/mcp";
+
+let mcpClient: Client | null = null;
+
+async function getMcpClient(): Promise<Client> {
+  if (!mcpClient) {
+    const transport = new StreamableHTTPClientTransport(
+      new URL(MCP_SERVER_URL)
+    );
+    mcpClient = new Client({
+      name: "nextjs-chatbot",
+      version: "1.0.0",
+    });
+    await mcpClient.connect(transport);
+  }
+  return mcpClient;
+}
+
 function getStreamContext() {
   try {
     return createResumableStreamContext({ waitUntil: after });
@@ -56,6 +78,54 @@ function getStreamContext() {
 }
 
 export { getStreamContext };
+
+// RAG tools that call the MCP server tools directly
+const searchRmit = async ({
+  question,
+  top_k = 5,
+}: {
+  question: string;
+  top_k?: number;
+}): Promise<string> => {
+  try {
+    const client = await getMcpClient();
+    const response = await client.callTool({
+      name: "search_rmit",
+      arguments: {
+        question,
+        top_k,
+      },
+    });
+    return JSON.stringify(response, null, 2);
+  } catch (error) {
+    return `Error searching RAG: ${error instanceof Error ? error.message : String(error)}`;
+  }
+};
+
+const searchRmitFiltered = async ({
+  question,
+  req_type,
+  top_k = 5,
+}: {
+  question: string;
+  req_type: "S" | "G";
+  top_k?: number;
+}): Promise<string> => {
+  try {
+    const client = await getMcpClient();
+    const response = await client.callTool({
+      name: "search_rmit_filtered",
+      arguments: {
+        question,
+        req_type,
+        top_k,
+      },
+    });
+    return JSON.stringify(response, null, 2);
+  } catch (error) {
+    return `Error searching RAG: ${error instanceof Error ? error.message : String(error)}`;
+  }
+};
 
 export async function POST(request: Request) {
   let requestBody: PostRequestBody;
@@ -205,6 +275,8 @@ export async function POST(request: Request) {
                   "editDocument",
                   "updateDocument",
                   "requestSuggestions",
+                  "searchRmit",
+                  "searchRmitFiltered",
                 ],
           providerOptions: {
             ...(modelConfig?.gatewayOrder && {
@@ -231,6 +303,35 @@ export async function POST(request: Request) {
               session,
               dataStream,
               modelId: chatModel,
+            }),
+            searchRmit: tool({
+              description: "Search RMiT document semantically using a natural language question.",
+              inputSchema: z.object({
+                question: z
+                  .string()
+                  .describe("The question to search for in the RMiT document"),
+                top_k: z
+                  .number()
+                  .describe("Number of results to return (default: 5)")
+                  .default(5),
+              }),
+              execute: searchRmit,
+            }),
+            searchRmitFiltered: tool({
+              description: "Search RMiT document filtered by requirement type (S for mandatory, G for guidance).",
+              inputSchema: z.object({
+                question: z
+                  .string()
+                  .describe("The question to search for"),
+                req_type: z
+                  .enum(["S", "G"])
+                  .describe("Requirement type: 'S' for mandatory, 'G' for guidance"),
+                top_k: z
+                  .number()
+                  .describe("Number of results to return (default: 5)")
+                  .default(5),
+              }),
+              execute: searchRmitFiltered,
             }),
           },
           experimental_telemetry: {
