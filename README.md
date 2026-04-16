@@ -1,10 +1,10 @@
 <a href="https://chatbot.ai-sdk.dev/demo">
   <img alt="Chatbot" src="app/(chat)/opengraph-image.png">
-  <h1 align="center">Chatbot</h1>
+  <h1 align="center">Workflow Management with Model Context Protocol Prototype</h1>
 </a>
 
 <p align="center">
-    Chatbot (formerly AI Chatbot) is a free, open-source template built with Next.js and the AI SDK that helps you quickly build powerful chatbot applications.
+    MCP + RAG prototype meant to fulfill FIT3162 for Monash University Malaysia, made by team MCS09
 </p>
 
 <p align="center">
