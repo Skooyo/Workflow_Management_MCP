@@ -5,6 +5,12 @@
 
 <p align="center">
     MCP + RAG prototype meant to fulfill FIT3162 for Monash University Malaysia, made by team MCS09
+
+Approved Test Queries:
+"What are the requirements for disaster recovery?"
+"What is the RTO requirement for critical systems?"
+"What are the cybersecurity requirements for board oversight?"
+"What must a financial institution do for patch management?"
 </p>
 
 <p align="center">
