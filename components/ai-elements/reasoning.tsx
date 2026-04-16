@@ -197,8 +197,12 @@ export const ReasoningTrigger = memo(
   }
 );
 
-export type ReasoningContentProps = HTMLAttributes<HTMLDivElement> & {
+export type ReasoningContentProps = Omit<
+  HTMLAttributes<HTMLDivElement>,
+  "dir" | "onAnimationStart" | "onAnimationEnd"
+> & {
   children: string;
+  dir?: "auto" | "ltr" | "rtl";
 };
 
 const streamdownPlugins = { cjk, code, math, mermaid };
