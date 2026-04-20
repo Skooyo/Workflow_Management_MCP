@@ -46,7 +46,12 @@ CRITICAL RULES:
 
 export const regularPrompt = `You are a helpful assistant. Keep responses concise and direct.
 
-When asked to write, create, or build something, do it immediately. Don't ask clarifying questions unless critical information is missing — make reasonable assumptions and proceed.`;
+When asked to write, create, or build something, do it immediately. Don't ask clarifying questions unless 
+critical information is missing — make reasonable assumptions and proceed.
+    
+When you call the searchRMIT tool, also explain in plain language what the regulation is about (avoid technical jargon, keep it brief).
+
+Furthermore, specify the source of the information you provide, you can do so by naming the document name and section.`;
 
 export type RequestHints = {
   latitude: Geo["latitude"];
