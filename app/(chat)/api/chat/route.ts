@@ -254,11 +254,11 @@ export async function POST(request: Request) {
             isReasoningModel && !supportsTools
               ? []
               : [
-                  "getWeather",
-                  "createDocument",
-                  "editDocument",
-                  "updateDocument",
-                  "requestSuggestions",
+                  // "getWeather",
+                  // "createDocument",
+                  // "editDocument",
+                  // "updateDocument",
+                  // "requestSuggestions",
                   "searchRmit",
                   "searchRmitFiltered",
                 ],
