@@ -24,7 +24,7 @@ export function Preview() {
       <div className="flex flex-1 flex-col items-center justify-center gap-8 px-8">
         <div className="text-center">
           <h2 className="text-xl font-semibold tracking-tight">
-            What can I help with?
+            Welcome to the BSN Helpdesk!
           </h2>
           <p className="mt-1.5 text-sm text-muted-foreground">
             Ask a question about Financial Regulatory Compliance and I'll do my best to assist you.
