@@ -1,4 +1,4 @@
-export const DEFAULT_CHAT_MODEL = "openai/gpt-5.3-codex";
+export const DEFAULT_CHAT_MODEL = "openai/gpt-5.2";
 
 export const titleModel = {
   id: "mistral/mistral-small",
