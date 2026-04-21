@@ -25,10 +25,10 @@ export type ChatModel = {
 
 export const chatModels: ChatModel[] = [
   {
-    id: "openai/gpt-5.3-codex",
-    name: "GPT-5.3 Codex",
+    id: "openai/gpt-5.2",
+    name: "GPT-5.2",
     provider: "openai",
-    description: "OpenAI's code-focused model with tool use",
+    description: "OpenAI's model with improved reasoning",
     gatewayOrder: ["openai"],
   },
   {
