@@ -77,50 +77,175 @@ function getStreamContext() {
 export { getStreamContext };
 
 // RAG tools that call the MCP server tools directly
-const searchRmit = async ({
+// Phase 1
+// const searchRmit = async ({
+//   question,
+//   top_k = 5,
+// }: {
+//   question: string;
+//   top_k?: number;
+// }): Promise<string> => {
+//   try {
+//     const client = await getMcpClient();
+//     const response = await client.callTool({
+//       name: "search_rmit",
+//       arguments: {
+//         question,
+//         top_k,
+//       },
+//     });
+//     return JSON.stringify(response, null, 2);
+//   } catch (error) {
+//     return `Error searching RAG: ${error instanceof Error ? error.message : String(error)}`;
+//   }
+// };
+
+// // Phase 1
+// const searchRmitFiltered = async ({
+//   question,
+//   req_type,
+//   top_k = 5,
+// }: {
+//   question: string;
+//   req_type: "S" | "G";
+//   top_k?: number;
+// }): Promise<string> => {
+//   try {
+//     const client = await getMcpClient();
+//     const response = await client.callTool({
+//       name: "search_rmit_filtered",
+//       arguments: {
+//         question,
+//         req_type,
+//         top_k,
+//       },
+//     });
+//     return JSON.stringify(response, null, 2);
+//   } catch (error) {
+//     return `Error searching RAG: ${error instanceof Error ? error.message : String(error)}`;
+//   }
+// };
+
+// Phase 2
+const searchDocuments = async ({
   question,
   top_k = 5,
+  req_type,
+  doc_type,
+  use_case_tag,
+  chunk_type,
 }: {
   question: string;
   top_k?: number;
+  req_type?: string;
+  doc_type?: string;
+  use_case_tag?: string;
+  chunk_type?: string;
 }): Promise<string> => {
   try {
     const client = await getMcpClient();
     const response = await client.callTool({
-      name: "search_rmit",
+      name: "search_documents",
       arguments: {
         question,
         top_k,
+        ...(req_type     && { req_type }),
+        ...(doc_type     && { doc_type }),
+        ...(use_case_tag && { use_case_tag }),
+        ...(chunk_type   && { chunk_type }),
       },
     });
     return JSON.stringify(response, null, 2);
   } catch (error) {
-    return `Error searching RAG: ${error instanceof Error ? error.message : String(error)}`;
+    return `Error searching documents: ${error instanceof Error ? error.message : String(error)}`;
   }
 };
 
-const searchRmitFiltered = async ({
+const searchDocumentsHybrid = async ({
   question,
-  req_type,
   top_k = 5,
+  req_type,
+  doc_type,
+  use_case_tag,
+  chunk_type,
 }: {
   question: string;
-  req_type: "S" | "G";
   top_k?: number;
+  req_type?: string;
+  doc_type?: string;
+  use_case_tag?: string;
+  chunk_type?: string;
 }): Promise<string> => {
   try {
     const client = await getMcpClient();
     const response = await client.callTool({
-      name: "search_rmit_filtered",
+      name: "search_documents_hybrid",
       arguments: {
         question,
-        req_type,
         top_k,
+        ...(req_type     && { req_type }),
+        ...(doc_type     && { doc_type }),
+        ...(use_case_tag && { use_case_tag }),
+        ...(chunk_type   && { chunk_type }),
       },
     });
     return JSON.stringify(response, null, 2);
   } catch (error) {
-    return `Error searching RAG: ${error instanceof Error ? error.message : String(error)}`;
+    return `Error in hybrid search: ${error instanceof Error ? error.message : String(error)}`;
+  }
+};
+
+const getChunk = async ({
+  paragraph_id,
+  doc_type,
+}: {
+  paragraph_id: string;
+  doc_type?: string;
+}): Promise<string> => {
+  try {
+    const client = await getMcpClient();
+    const response = await client.callTool({
+      name: "get_chunk",
+      arguments: {
+        paragraph_id,
+        ...(doc_type && { doc_type }),
+      },
+    });
+    return JSON.stringify(response, null, 2);
+  } catch (error) {
+    return `Error fetching chunk: ${error instanceof Error ? error.message : String(error)}`;
+  }
+};
+
+const getDocuments = async (): Promise<string> => {
+  try {
+    const client = await getMcpClient();
+    const response = await client.callTool({
+      name: "get_documents",
+      arguments: {},
+    });
+    return JSON.stringify(response, null, 2);
+  } catch (error) {
+    return `Error fetching documents: ${error instanceof Error ? error.message : String(error)}`;
+  }
+};
+
+const getSections = async ({
+  doc_code,
+}: {
+  doc_code?: string;
+}): Promise<string> => {
+  try {
+    const client = await getMcpClient();
+    const response = await client.callTool({
+      name: "get_sections",
+      arguments: {
+        ...(doc_code && { doc_code }),
+      },
+    });
+    return JSON.stringify(response, null, 2);
+  } catch (error) {
+    return `Error fetching sections: ${error instanceof Error ? error.message : String(error)}`;
   }
 };
 
@@ -259,8 +384,13 @@ export async function POST(request: Request) {
                   // "editDocument",
                   // "updateDocument",
                   // "requestSuggestions",
-                  "searchRmit",
-                  "searchRmitFiltered",
+                  // "searchRmit", // phase 1
+                  // "searchRmitFiltered", // phase 1
+                  "searchDocuments", // phase 2 tools
+                  "searchDocumentsHybrid",
+                  "getChunk",
+                  "getDocuments",
+                  "getSections",
                 ],
           providerOptions: {
             ...(modelConfig?.gatewayOrder && {
@@ -288,35 +418,155 @@ export async function POST(request: Request) {
               dataStream,
               modelId: chatModel,
             }),
-            searchRmit: tool({
-              description: "Search RMiT document semantically using a natural language question.",
-              inputSchema: z.object({
-                question: z
-                  .string()
-                  .describe("The question to search for in the RMiT document"),
-                top_k: z
-                  .number()
-                  .describe("Number of results to return (default: 5)")
-                  .default(5),
-              }),
-              execute: searchRmit,
+            // phase 1 RAG tools
+            // searchRmit: tool({
+            //   description: "Search RMiT document semantically using a natural language question.",
+            //   inputSchema: z.object({
+            //     question: z
+            //       .string()
+            //       .describe("The question to search for in the RMiT document"),
+            //     top_k: z
+            //       .number()
+            //       .describe("Number of results to return (default: 5)")
+            //       .default(5),
+            //   }),
+            //   execute: searchRmit,
+            // }),
+            // searchRmitFiltered: tool({
+            //   description: "Search RMiT document filtered by requirement type (S for mandatory, G for guidance).",
+            //   inputSchema: z.object({
+            //     question: z
+            //       .string()
+            //       .describe("The question to search for"),
+            //     req_type: z
+            //       .enum(["S", "G"])
+            //       .describe("Requirement type: 'S' for mandatory, 'G' for guidance"),
+            //     top_k: z
+            //       .number()
+            //       .describe("Number of results to return (default: 5)")
+            //       .default(5),
+            //   }),
+            //   execute: searchRmitFiltered,
+            // }),
+            
+            // phase 2 RAG tools with enhanced filtering and hybrid search start ---
+            searchDocuments: tool({
+            description:
+              "Semantic search over BNM regulatory documents using natural language. " +
+              "Best for conceptual questions about DR, BCM, compliance, and operational risk. " +
+              "Apply filters to scope results: " +
+              "doc_type ('rmit','bcm','op_risk'), " +
+              "use_case_tag ('dr','compliance'), " +
+              "req_type ('S' mandatory, 'G' guidance), " +
+              "chunk_type ('policy','notification_rule','scenario').",
+            inputSchema: z.object({
+              question: z
+                .string()
+                .describe("Natural language question to search for"),
+              top_k: z
+                .number()
+                .default(5)
+                .describe("Number of results to return (default 5)"),
+              req_type: z
+                .enum(["S", "G"])
+                .optional()
+                .describe("S = mandatory standard, G = guidance"),
+              doc_type: z
+                .enum(["rmit", "bcm", "op_risk"])
+                .optional()
+                .describe("Scope to one document"),
+              use_case_tag: z
+                .enum(["dr", "compliance"])
+                .optional()
+                .describe("dr = disaster recovery, compliance = regulatory"),
+              chunk_type: z
+                .enum(["policy", "notification_rule", "scenario"])
+                .optional()
+                .describe("Type of chunk to search"),
             }),
-            searchRmitFiltered: tool({
-              description: "Search RMiT document filtered by requirement type (S for mandatory, G for guidance).",
-              inputSchema: z.object({
-                question: z
-                  .string()
-                  .describe("The question to search for"),
-                req_type: z
-                  .enum(["S", "G"])
-                  .describe("Requirement type: 'S' for mandatory, 'G' for guidance"),
-                top_k: z
-                  .number()
-                  .describe("Number of results to return (default: 5)")
-                  .default(5),
-              }),
-              execute: searchRmitFiltered,
+            execute: searchDocuments,
+          }),
+
+          searchDocumentsHybrid: tool({
+            description:
+              "Hybrid search combining semantic + BM25 keyword matching. " +
+              "Use ONLY when query contains exact regulatory codes or acronyms: " +
+              "paragraph IDs (S 10.32, G 9.4), LoD codes (LOD-3, LOD-CYBER), " +
+              "or acronyms (RTO, MTD, BCP, DRP, CMT). " +
+              "For general natural language questions use searchDocuments instead.",
+            inputSchema: z.object({
+              question: z
+                .string()
+                .describe("Query containing exact codes or regulatory terms"),
+              top_k: z
+                .number()
+                .default(5)
+                .describe("Number of results to return (default 5)"),
+              req_type: z
+                .enum(["S", "G"])
+                .optional()
+                .describe("S = mandatory standard, G = guidance"),
+              doc_type: z
+                .enum(["rmit", "bcm", "op_risk"])
+                .optional()
+                .describe("Scope to one document"),
+              use_case_tag: z
+                .enum(["dr", "compliance"])
+                .optional()
+                .describe("dr = disaster recovery, compliance = regulatory"),
+              chunk_type: z
+                .enum(["policy", "notification_rule", "scenario"])
+                .optional()
+                .describe("Type of chunk to search"),
             }),
+            execute: searchDocumentsHybrid,
+          }),
+
+          getChunk: tool({
+            description:
+              "Fetch the full text of a specific paragraph by its exact ID. " +
+              "Use when user references a specific paragraph e.g. 'what does S 10.32 say' " +
+              "or 'show me LOD-3'. Faster and more precise than search for exact lookups.",
+            inputSchema: z.object({
+              paragraph_id: z
+                .string()
+                .describe(
+                  "Exact paragraph ID e.g. 'S 10.32', 'G 9.4', 'LOD-3', 'BCM-SCENARIO-1'"
+                ),
+              doc_type: z
+                .enum(["rmit", "bcm", "op_risk"])
+                .optional()
+                .describe("Scope to one document to avoid cross-doc conflicts"),
+            }),
+            execute: getChunk,
+          }),
+
+          getDocuments: tool({
+            description:
+              "List all ingested BNM documents with metadata and chunk counts. " +
+              "Call this when user asks what documents are available, " +
+              "or when you are unsure which document covers a topic.",
+            inputSchema: z.object({}),
+            execute: getDocuments,
+          }),
+
+          getSections: tool({
+            description:
+              "List all sections within a document or across all documents. " +
+              "Useful for helping user navigate available content " +
+              "or when a broad topic query needs to be scoped to a specific section.",
+            inputSchema: z.object({
+              doc_code: z
+                .enum(["rmit_nov25", "bcm_dec22", "op_risk_may16"])
+                .optional()
+                .describe(
+                  "Filter by document: rmit_nov25, bcm_dec22, op_risk_may16. " +
+                  "Omit to list all sections across all documents."
+                ),
+            }),
+            execute: getSections,
+          }), // phase 2 RAG tools with enhanced filtering and hybrid search end ---
+            
           },
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
