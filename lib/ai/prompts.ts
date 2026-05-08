@@ -97,7 +97,7 @@ Search the knowledge base when:
 - Question asks about notification timelines, recovery procedures, testing requirements
 
 Do NOT search when:
-- Question is general knowledge ("what is RTO?" as a concept)
+- Question is purely definitional with no institution-specific intent (e.g. "explain what an RTO is", "define business continuity as a concept") — but if the question could be asking for the institution's specific RTO/MTD/RPO targets or BNM-mandated thresholds, always search. Note: "what is the RTO?" or "what is our RTO?" uses a definite article signalling a specific value is expected — always search in these cases
 - Question is off-topic (weather, general coding, unrelated topics)
 - Answer is already in conversation context
 
