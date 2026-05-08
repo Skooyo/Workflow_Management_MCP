@@ -27,6 +27,8 @@ import {
   type Suggestion,
   stream,
   suggestion,
+  type Ticket,
+  ticket,
   type User,
   user,
   vote,
@@ -627,6 +629,120 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
     throw new ChatbotError(
       "bad_request:database",
       "Failed to get stream ids by chat id"
+    );
+  }
+}
+
+// Ticket queries for IT Helpdesk escalation
+export async function createTicket({
+  chatId,
+  userId,
+  title,
+  description,
+  issue,
+  escalationReason,
+  conversationHistory,
+  priority = "medium",
+}: {
+  chatId: string;
+  userId: string;
+  title: string;
+  description: string;
+  issue: string;
+  escalationReason?: string;
+  conversationHistory: any;
+  priority?: "low" | "medium" | "high" | "critical";
+}) {
+  try {
+    const [newTicket] = await db
+      .insert(ticket)
+      .values({
+        id: generateUUID(),
+        chatId,
+        userId,
+        title,
+        description,
+        issue,
+        status: "open",
+        priority,
+        conversationHistory,
+        escalationReason,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+
+    return newTicket;
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to create ticket"
+    );
+  }
+}
+
+export async function getTicketById({ id }: { id: string }) {
+  try {
+    return await db.select().from(ticket).where(eq(ticket.id, id));
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get ticket by id"
+    );
+  }
+}
+
+export async function getTicketsByChatId({ chatId }: { chatId: string }) {
+  try {
+    return await db
+      .select()
+      .from(ticket)
+      .where(eq(ticket.chatId, chatId))
+      .orderBy(desc(ticket.createdAt));
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get tickets by chat id"
+    );
+  }
+}
+
+export async function getTicketsByUserId({ userId }: { userId: string }) {
+  try {
+    return await db
+      .select()
+      .from(ticket)
+      .where(eq(ticket.userId, userId))
+      .orderBy(desc(ticket.createdAt));
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get tickets by user id"
+    );
+  }
+}
+
+export async function updateTicketStatus({
+  id,
+  status,
+}: {
+  id: string;
+  status: "open" | "in_progress" | "resolved" | "closed";
+}) {
+  try {
+    return await db
+      .update(ticket)
+      .set({
+        status,
+        updatedAt: new Date(),
+        ...(status === "resolved" && { resolvedAt: new Date() }),
+      })
+      .where(eq(ticket.id, id))
+      .returning();
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to update ticket status"
     );
   }
 }

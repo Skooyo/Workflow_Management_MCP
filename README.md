@@ -40,6 +40,10 @@ Approved Test Queries:
 - [Auth.js](https://authjs.dev)
   - Simple and secure authentication
 
+## IT Helpdesk Escalation
+
+This repository also includes an IT helpdesk escalation flow backed by MCP and a local ticket table. `searchTroubleshooting` is registered as a chat tool in [app/(chat)/api/chat/route.ts](app/(chat)/api/chat/route.ts), and ticket creation is exposed in [app/(chat)/api/tickets/route.ts](app/(chat)/api/tickets/route.ts). If you are continuing this feature after the MCP server is finalized, follow the handoff in [HELPDESK_ESCALATION.md](HELPDESK_ESCALATION.md).
+
 ## Model Providers
 
 This template uses the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) to access multiple AI models through a unified interface. Models are configured in `lib/ai/models.ts` with per-model provider routing. Included models: Mistral, Moonshot, DeepSeek, OpenAI, and xAI.

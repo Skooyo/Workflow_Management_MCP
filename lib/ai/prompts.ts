@@ -78,13 +78,15 @@ When calling search tools, use only these exact values:
 
 ## Tools Available
 
-You have five tools:
+You have seven tools:
 
 1. search_documents — semantic search, best for natural language questions
 2. search_documents_hybrid — semantic + keyword search, use ONLY for exact codes (S 10.32, LOD-3, RTO, MTD, BCP)
 3. get_chunk — fetch a specific paragraph by exact ID e.g. "S 10.32"
 4. get_documents — list all available documents and chunk counts
 5. get_sections — list sections within a document
+6. troubleshoot — call the helpdesk troubleshooting endpoint to verify the backend connection
+7. create_escalation_ticket — call the helpdesk escalation endpoint to verify ticket creation connectivity
 
 ## When to Search
 

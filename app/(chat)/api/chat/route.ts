@@ -31,6 +31,7 @@ import { updateDocument } from "@/lib/ai/tools/update-document";
 import { isProductionEnvironment } from "@/lib/constants";
 import {
   createStreamId,
+  createTicket,
   deleteChatById,
   getChatById,
   getMessagesByChatId,
@@ -249,6 +250,42 @@ const getSections = async ({
   }
 };
 
+const troubleshootViaMCP = async (): Promise<string> => {
+  try {
+    const client = await getMcpClient();
+    const response = await client.callTool({
+      name: "troubleshoot",
+      arguments: {},
+    });
+    return JSON.stringify(response, null, 2);
+  } catch (error) {
+    return `Error searching troubleshooting database: ${
+      error instanceof Error ? error.message : String(error)
+    }`;
+  }
+};
+
+const escalateViaMCP = async ({
+  issue_description,
+}: {
+  issue_description: string;
+}): Promise<string> => {
+  try {
+    const client = await getMcpClient();
+    const response = await client.callTool({
+      name: "create_escalation_ticket",
+      arguments: {
+        issue_description,
+      },
+    });
+    return JSON.stringify(response, null, 2);
+  } catch (error) {
+    return `Error creating ticket via MCP: ${
+      error instanceof Error ? error.message : String(error)
+    }`;
+  }
+};
+
 export async function POST(request: Request) {
   let requestBody: PostRequestBody;
 
@@ -375,23 +412,15 @@ export async function POST(request: Request) {
           system: systemPrompt({ requestHints, supportsTools }),
           messages: modelMessages,
           stopWhen: stepCountIs(5),
-          experimental_activeTools:
-            isReasoningModel && !supportsTools
-              ? []
-              : [
-                  // "getWeather",
-                  // "createDocument",
-                  // "editDocument",
-                  // "updateDocument",
-                  // "requestSuggestions",
-                  // "searchRmit", // phase 1
-                  // "searchRmitFiltered", // phase 1
-                  "searchDocuments", // phase 2 tools
-                  "searchDocumentsHybrid",
-                  "getChunk",
-                  "getDocuments",
-                  "getSections",
-                ],
+          experimental_activeTools: [
+            "searchDocuments",
+            "searchDocumentsHybrid",
+            "getChunk",
+            "getDocuments",
+            "getSections",
+            "troubleshoot",
+            "create_escalation_ticket",
+          ],
           providerOptions: {
             ...(modelConfig?.gatewayOrder && {
               gateway: { order: modelConfig.gatewayOrder },
@@ -566,7 +595,27 @@ export async function POST(request: Request) {
             }),
             execute: getSections,
           }), // phase 2 RAG tools with enhanced filtering and hybrid search end ---
-            
+
+          // IT Helpdesk escalation tools
+          troubleshoot: tool({
+            description:
+              "Call the MCP troubleshooting endpoint to verify the backend connection. " +
+              "Use this for a quick test of the helpdesk troubleshooting integration.",
+            inputSchema: z.object({}),
+            execute: troubleshootViaMCP,
+          }),
+
+          create_escalation_ticket: tool({
+            description:
+              "Call the MCP escalation endpoint to verify ticket creation connectivity. " +
+              "Use this for a quick test of the helpdesk escalation integration.",
+            inputSchema: z.object({
+              issue_description: z
+                .string()
+                .describe("A brief description of the issue to escalate"),
+            }),
+            execute: async (input) => escalateViaMCP(input),
+          }),
           },
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,

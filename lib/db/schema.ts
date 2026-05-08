@@ -134,3 +134,31 @@ export const stream = pgTable(
 );
 
 export type Stream = InferSelectModel<typeof stream>;
+
+export const ticket = pgTable("Ticket", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  chatId: uuid("chatId")
+    .notNull()
+    .references(() => chat.id),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => user.id),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  issue: text("issue").notNull(),
+  status: varchar("status", {
+    enum: ["open", "in_progress", "resolved", "closed"],
+  })
+    .notNull()
+    .default("open"),
+  priority: varchar("priority", { enum: ["low", "medium", "high", "critical"] })
+    .notNull()
+    .default("medium"),
+  conversationHistory: json("conversationHistory").notNull(), // Store full conversation context
+  escalationReason: text("escalationReason"), // Why it was escalated
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  resolvedAt: timestamp("resolvedAt"),
+});
+
+export type Ticket = InferSelectModel<typeof ticket>;
