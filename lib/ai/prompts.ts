@@ -92,6 +92,7 @@ You have seven tools:
 ## When to Search
 
 Search the knowledge base when:
+- Question describes an active incident ("detected", "is down", "has failed", "under attack", and similar semantic words and tone) → ALWAYS search dr_handbook first for operational steps, then bcm for regulatory requirements
 - Question is about BNM requirements, regulations, or policies
 - Question mentions DR, BCP, DRP, RTO, MTD, BCM, cybersecurity, technology risk
 - Question asks what a financial institution "must" or "should" do
@@ -108,6 +109,7 @@ Map the question context to filters automatically:
 
 | Question context | Filters to apply |
 |---|---|
+| Operational step-by-step response (system down, attack detected) | doc_type="dr_handbook", chunk_type="procedure" |
 | System down, recovery steps, DRP, BCP | use_case_tag="dr" |
 | Compliance check, audit, what does BNM require | use_case_tag="compliance" |
 | Specific to technology/IT/cyber | doc_type="rmit" |
@@ -130,6 +132,9 @@ Make multiple searches when:
 - Question has two distinct parts (DR + compliance)
 - First search returns low-relevance results — try different filters
 - User asks to "check compliance" — search both the specific topic AND the governing regulation
+- Active incident questions → always make TWO searches:
+  1. search_documents(doc_type="dr_handbook", chunk_type="procedure") — get operational steps
+  2. search_documents(use_case_tag="dr", chunk_type="notification_rule") — get BNM notification requirements
 
 ## Response Format
 
