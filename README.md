@@ -4,7 +4,7 @@
 </a>
 
 <p align="center">
-    MCP + RAG prototype meant to fulfill FIT3162 for Monash University Malaysia, made by team MCS09.
+    MCP + RAG prototype meant to fulfill FIT3162 for Monash University Malaysia, made by team MCS09
 
 Approved Test Queries:
 "What are the requirements for disaster recovery?"
