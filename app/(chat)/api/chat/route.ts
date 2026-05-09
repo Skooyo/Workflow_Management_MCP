@@ -53,17 +53,41 @@ const MCP_SERVER_URL = process.env.MCP_SERVER_URL || "http://127.0.0.1:8001/mcp"
 
 let mcpClient: Client | null = null;
 
+// async function getMcpClient(): Promise<Client> {
+//   if (!mcpClient) {
+//     const transport = new StreamableHTTPClientTransport(
+//       new URL(MCP_SERVER_URL)
+//     );
+//     mcpClient = new Client({
+//       name: "nextjs-chatbot",
+//       version: "1.0.0",
+//     });
+//     await mcpClient.connect(transport);
+//   }
+//   return mcpClient;
+// }
 async function getMcpClient(): Promise<Client> {
-  if (!mcpClient) {
-    const transport = new StreamableHTTPClientTransport(
-      new URL(MCP_SERVER_URL)
-    );
-    mcpClient = new Client({
-      name: "nextjs-chatbot",
-      version: "1.0.0",
-    });
-    await mcpClient.connect(transport);
+  if (mcpClient) {
+    try {
+      // Ping to verify connection is still alive
+      await mcpClient.listTools();
+      return mcpClient;
+    } catch {
+      // Session is dead — reset and reconnect
+      console.log("[MCP] Session expired, reconnecting...");
+      mcpClient = null;
+    }
   }
+
+  const transport = new StreamableHTTPClientTransport(
+    new URL(MCP_SERVER_URL)
+  );
+  mcpClient = new Client({
+    name: "nextjs-chatbot",
+    version: "1.0.0",
+  });
+  await mcpClient.connect(transport);
+  console.log("[MCP] Connected to:", MCP_SERVER_URL);
   return mcpClient;
 }
 
@@ -158,6 +182,12 @@ const searchDocuments = async ({
     });
     return JSON.stringify(response, null, 2);
   } catch (error) {
+    // If session expired mid-call, reset client so next call reconnects
+    if (error instanceof Error && 
+        (error.message.includes("session") || error.message.includes("Session"))) {
+      console.log("[MCP] Resetting client due to session error");
+      mcpClient = null;
+    }
     return `Error searching documents: ${error instanceof Error ? error.message : String(error)}`;
   }
 };
@@ -192,7 +222,13 @@ const searchDocumentsHybrid = async ({
     });
     return JSON.stringify(response, null, 2);
   } catch (error) {
-    return `Error in hybrid search: ${error instanceof Error ? error.message : String(error)}`;
+    // If session expired mid-call, reset client so next call reconnects
+    if (error instanceof Error && 
+        (error.message.includes("session") || error.message.includes("Session"))) {
+      console.log("[MCP] Resetting client due to session error");
+      mcpClient = null;
+    }
+    return `Error searching documents: ${error instanceof Error ? error.message : String(error)}`;
   }
 };
 
@@ -214,7 +250,13 @@ const getChunk = async ({
     });
     return JSON.stringify(response, null, 2);
   } catch (error) {
-    return `Error fetching chunk: ${error instanceof Error ? error.message : String(error)}`;
+    // If session expired mid-call, reset client so next call reconnects
+    if (error instanceof Error && 
+        (error.message.includes("session") || error.message.includes("Session"))) {
+      console.log("[MCP] Resetting client due to session error");
+      mcpClient = null;
+    }
+    return `Error searching documents: ${error instanceof Error ? error.message : String(error)}`;
   }
 };
 
@@ -227,7 +269,13 @@ const getDocuments = async (): Promise<string> => {
     });
     return JSON.stringify(response, null, 2);
   } catch (error) {
-    return `Error fetching documents: ${error instanceof Error ? error.message : String(error)}`;
+    // If session expired mid-call, reset client so next call reconnects
+    if (error instanceof Error && 
+        (error.message.includes("session") || error.message.includes("Session"))) {
+      console.log("[MCP] Resetting client due to session error");
+      mcpClient = null;
+    }
+    return `Error searching documents: ${error instanceof Error ? error.message : String(error)}`;
   }
 };
 
@@ -246,7 +294,13 @@ const getSections = async ({
     });
     return JSON.stringify(response, null, 2);
   } catch (error) {
-    return `Error fetching sections: ${error instanceof Error ? error.message : String(error)}`;
+    // If session expired mid-call, reset client so next call reconnects
+    if (error instanceof Error && 
+        (error.message.includes("session") || error.message.includes("Session"))) {
+      console.log("[MCP] Resetting client due to session error");
+      mcpClient = null;
+    }
+    return `Error searching documents: ${error instanceof Error ? error.message : String(error)}`;
   }
 };
 
