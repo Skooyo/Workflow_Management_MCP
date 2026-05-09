@@ -151,9 +151,6 @@ export const ticket = pgTable("Ticket", {
   })
     .notNull()
     .default("open"),
-  priority: varchar("priority", { enum: ["low", "medium", "high", "critical"] })
-    .notNull()
-    .default("medium"),
   conversationHistory: json("conversationHistory").notNull(), // Store full conversation context
   escalationReason: text("escalationReason"), // Why it was escalated
   createdAt: timestamp("createdAt").notNull().defaultNow(),

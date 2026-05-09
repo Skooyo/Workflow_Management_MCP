@@ -18,7 +18,7 @@ import {
   CircleCheck,
   CircleX,
 } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 type TicketConversationEntry = {
   role?: string;
@@ -30,88 +30,86 @@ type DashboardTicket = Omit<Ticket, "conversationHistory"> & {
   requesterName: string;
 };
 
-const mockTickets: DashboardTicket[] = [
-  {
-    id: "7b14b4b7-3f56-4cf7-8b89-46cc0a7e6a11",
-    chatId: "52f52d73-4c4b-4d5b-8f3f-2f776aa4c777",
-    userId: "a51b861a-bd66-4fbf-88e4-6e2d7f1edaf3",
-    title: "Printer on Level 4 not printing",
-    description:
-      "User confirmed the printer is online but jobs are stuck in the queue. Restarted the print spooler and checked the cable with no change.",
-    issue: "Printer Not Working",
-    status: "open",
-    priority: "high",
-    conversationHistory: [
-      { role: "user", text: "My printer stopped working this morning." },
-      { role: "assistant", text: "Try checking the queue and restarting the printer." },
-    ],
-    escalationReason: "User asked for escalation after trying troubleshooting steps.",
-    createdAt: new Date("2026-05-08T02:15:00.000Z"),
-    updatedAt: new Date("2026-05-08T02:27:00.000Z"),
-    resolvedAt: null,
-    requesterName: "Alicia Tan",
-  },
-  {
-    id: "f0d0e8c5-1b96-4ee2-9d87-09d4f93dd229",
-    chatId: "03ad2a8d-7cd4-49e2-a72a-f47a1a7281f4",
-    userId: "28ed4b5d-8e83-4d4a-8f1e-f4d5f2d872e0",
-    title: "External monitor flickering at docking station",
-    description:
-      "Cable reseated and display driver checked. Team is testing a replacement dock before replacing the monitor itself.",
-    issue: "Monitor Display Issue",
-    status: "in_progress",
-    priority: "medium",
-    conversationHistory: [
-      { role: "user", text: "My second monitor keeps flickering." },
-      { role: "assistant", text: "Please reseat the cable and confirm the display adapter." },
-    ],
-    escalationReason: "Still unresolved after troubleshooting.",
-    createdAt: new Date("2026-05-08T01:40:00.000Z"),
-    updatedAt: new Date("2026-05-08T02:05:00.000Z"),
-    resolvedAt: null,
-    requesterName: "Daniel Lim",
-  },
-  {
-    id: "e2f45c49-3f2e-4f8a-8bb0-1d6e6df5f9f8",
-    chatId: "af10f20a-1261-4b9a-b1b6-3aa7d6a21339",
-    userId: "bc5e2c90-32ae-4dd0-a0c2-9c761eb9b2ff",
-    title: "VPN disconnecting after 5 minutes",
-    description:
-      "Expired profile token caused repeated disconnects. Profile was refreshed and the connection re-tested successfully.",
-    issue: "Connectivity Issue",
-    status: "resolved",
-    priority: "critical",
-    conversationHistory: [
-      { role: "user", text: "VPN drops every few minutes." },
-      { role: "assistant", text: "Let's check the profile token and connection logs." },
-    ],
-    escalationReason: "Resolved after refresh and verification.",
-    createdAt: new Date("2026-05-07T23:20:00.000Z"),
-    updatedAt: new Date("2026-05-08T00:50:00.000Z"),
-    resolvedAt: new Date("2026-05-08T00:45:00.000Z"),
-    requesterName: "Maya Reddy",
-  },
-  {
-    id: "91eab4fe-11fa-4f0a-936d-2c63da10c55a",
-    chatId: "d34f8f28-8c0b-44b2-a2f8-2b8d0fd4d6c1",
-    userId: "0f25f2cb-6b1a-4f75-8380-e6d1ad1157d0",
-    title: "Laptop battery not charging",
-    description:
-      "Replacement adapter issued and case closed after a successful re-test with the new charger.",
-    issue: "Power Issue",
-    status: "closed",
-    priority: "low",
-    conversationHistory: [
-      { role: "user", text: "My laptop battery is not charging." },
-      { role: "assistant", text: "Please try a known-good adapter." },
-    ],
-    escalationReason: "Closed after replacement adapter was confirmed working.",
-    createdAt: new Date("2026-05-07T09:10:00.000Z"),
-    updatedAt: new Date("2026-05-07T11:00:00.000Z"),
-    resolvedAt: new Date("2026-05-07T10:40:00.000Z"),
-    requesterName: "Hafiz Noor",
-  },
-];
+const getTicketsEndpoint = () => "/api/helpdesk/tickets";
+
+const getTicketActionEndpoint = (ticketId: string, action: "resolve" | "close") =>
+  `/api/helpdesk/tickets/${ticketId}/${action}`;
+
+const toDate = (value: unknown, fallback = new Date()) => {
+  if (!value) return fallback;
+
+  const parsed = new Date(String(value));
+  return Number.isNaN(parsed.getTime()) ? fallback : parsed;
+};
+
+const normalizeConversation = (history: unknown): TicketConversationEntry[] => {
+  if (!Array.isArray(history)) return [];
+
+  return history.map((entry) => {
+    if (typeof entry === "object" && entry !== null) {
+      const candidate = entry as { role?: unknown; text?: unknown; content?: unknown };
+
+      return {
+        role: typeof candidate.role === "string" ? candidate.role : "message",
+        text:
+          typeof candidate.text === "string"
+            ? candidate.text
+            : typeof candidate.content === "string"
+              ? candidate.content
+              : JSON.stringify(entry),
+      };
+    }
+
+    return { role: "message", text: String(entry) };
+  });
+};
+
+const normalizeTicket = (raw: unknown): DashboardTicket | null => {
+  if (!raw || typeof raw !== "object") return null;
+
+  const ticket = raw as Record<string, unknown>;
+
+  if (
+    typeof ticket.id !== "string" ||
+    typeof ticket.chatId !== "string" ||
+    typeof ticket.userId !== "string" ||
+    typeof ticket.title !== "string" ||
+    typeof ticket.description !== "string" ||
+    typeof ticket.issue !== "string"
+  ) {
+    return null;
+  }
+
+  const status =
+    ticket.status === "open" ||
+    ticket.status === "in_progress" ||
+    ticket.status === "resolved" ||
+    ticket.status === "closed"
+      ? ticket.status
+      : "open";
+
+  return {
+    id: ticket.id,
+    chatId: ticket.chatId,
+    userId: ticket.userId,
+    title: ticket.title,
+    description: ticket.description,
+    issue: ticket.issue,
+    status,
+    conversationHistory: normalizeConversation(ticket.conversationHistory),
+    escalationReason:
+      typeof ticket.escalationReason === "string" ? ticket.escalationReason : null,
+    createdAt: toDate(ticket.createdAt),
+    updatedAt: toDate(ticket.updatedAt),
+    resolvedAt: ticket.resolvedAt ? toDate(ticket.resolvedAt) : null,
+    requesterName:
+      typeof ticket.requesterName === "string"
+        ? ticket.requesterName
+        : typeof ticket.requester_name === "string"
+          ? ticket.requester_name
+          : "Unknown requester",
+  };
+};
 
 const statusStyles: Record<Ticket["status"], string> = {
   open: "bg-amber-500/15 text-amber-500 border-amber-500/20",
@@ -121,8 +119,73 @@ const statusStyles: Record<Ticket["status"], string> = {
 };
 
 export default function TicketsPage() {
-  const [tickets, setTickets] = useState(mockTickets);
+  const [tickets, setTickets] = useState<DashboardTicket[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const [updatingTicketId, setUpdatingTicketId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const loadTickets = async (signal?: AbortSignal) => {
+    try {
+      setIsLoading(true);
+      setFetchError(null);
+
+      const response = await fetch(getTicketsEndpoint(), {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+        signal,
+      });
+
+      if (!response.ok) {
+        let details = "";
+
+        try {
+          const errorPayload = await response.json();
+          if (errorPayload && typeof errorPayload === "object" && "message" in errorPayload) {
+            details = `: ${String(errorPayload.message)}`;
+          }
+        } catch {
+          // Ignore JSON parsing errors for non-JSON responses.
+        }
+
+        throw new Error(`Failed to load tickets (${response.status})${details}`);
+      }
+
+      const payload = (await response.json()) as { tickets?: unknown[] } | unknown[];
+      const rawTickets = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload.tickets)
+          ? payload.tickets
+          : [];
+
+      const normalized = rawTickets
+        .map((ticket) => normalizeTicket(ticket))
+        .filter((ticket): ticket is DashboardTicket => ticket !== null);
+
+      setTickets(normalized);
+    } catch (error) {
+      if ((error as { name?: string }).name !== "AbortError") {
+        setFetchError(
+          error instanceof Error ? error.message : "Unable to fetch tickets from the server."
+        );
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    void loadTickets(controller.signal);
+
+    return () => {
+      controller.abort();
+    };
+  }, []);
 
   const selectedTicket = tickets.find((ticket) => ticket.id === selectedTicketId) ?? null;
 
@@ -135,26 +198,46 @@ export default function TicketsPage() {
     [tickets]
   );
   const resolvedTickets = useMemo(
-    () => tickets.filter((ticket) => ticket.status === "resolved"),
+    () => tickets.filter((ticket) => ticket.status === "resolved" || ticket.status === "closed"),
     [tickets]
   );
 
-  const updateSelectedTicket = (status: Ticket["status"]) => {
-    if (!selectedTicket) return;
+  const updateSelectedTicket = async (action: "resolve" | "close") => {
+    if (!selectedTicket || updatingTicketId) return;
 
-    setTickets((current) =>
-      current.map((ticket) =>
-        ticket.id === selectedTicket.id
-          ? {
-              ...ticket,
-              status,
-              updatedAt: new Date(),
-              resolvedAt: status === "resolved" ? new Date() : ticket.resolvedAt,
-            }
-          : ticket
-      )
-    );
-    setSelectedTicketId(null);
+    try {
+      setUpdatingTicketId(selectedTicket.id);
+      setActionError(null);
+
+      const response = await fetch(getTicketActionEndpoint(selectedTicket.id, action), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        let details = "";
+
+        try {
+          const errorPayload = await response.json();
+          if (errorPayload && typeof errorPayload === "object" && "message" in errorPayload) {
+            details = `: ${String(errorPayload.message)}`;
+          }
+        } catch {
+          // Ignore JSON parsing errors for non-JSON responses.
+        }
+
+        throw new Error(`Failed to ${action} ticket (${response.status})${details}`);
+      }
+
+      await loadTickets();
+      setSelectedTicketId(selectedTicket.id);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : `Unable to ${action} ticket.`);
+    } finally {
+      setUpdatingTicketId(null);
+    }
   };
 
   return (
@@ -174,16 +257,28 @@ export default function TicketsPage() {
                   Ticket overview
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
-                  Mock data only for now. Click any ticket to inspect the full record and update its status locally.
+                  Tickets are loaded from the helpdesk service. Click any ticket to inspect the full record and update its status locally.
                 </p>
               </div>
             </div>
           </div>
 
+          {fetchError ? (
+            <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/8 px-4 py-3 text-sm text-red-600 dark:text-red-300">
+              {fetchError}
+            </div>
+          ) : null}
+
+          {actionError ? (
+            <div className="mt-3 rounded-2xl border border-amber-500/30 bg-amber-500/8 px-4 py-3 text-sm text-amber-700 dark:text-amber-200">
+              {actionError}
+            </div>
+          ) : null}
+
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             <MetricCard icon={<ClipboardList className="size-4" />} label="Open tickets" value={openTickets.length} />
-            <MetricCard icon={<Clock3 className="size-4" />} label="Active tickets" value={activeTickets.length} />
-            <MetricCard icon={<ShieldAlert className="size-4" />} label="Resolved tickets" value={resolvedTickets.length} />
+            <MetricCard icon={<Clock3 className="size-4" />} label="In progress" value={activeTickets.length} />
+            <MetricCard icon={<ShieldAlert className="size-4" />} label="Closed tickets" value={resolvedTickets.length} />
           </div>
         </section>
 
@@ -196,7 +291,16 @@ export default function TicketsPage() {
           </div>
 
           <div className="divide-y divide-border/60">
-            {tickets.map((ticket) => (
+            {isLoading ? (
+              <div className="px-5 py-10 text-sm text-muted-foreground md:px-6">
+                Loading tickets...
+              </div>
+            ) : tickets.length === 0 ? (
+              <div className="px-5 py-10 text-sm text-muted-foreground md:px-6">
+                No tickets found.
+              </div>
+            ) : (
+              tickets.map((ticket) => (
               <button
                 key={ticket.id}
                 className="grid w-full gap-4 px-5 py-5 text-left transition-colors hover:bg-muted/30 md:grid-cols-[1.4fr_0.8fr_0.8fr] md:px-6"
@@ -211,7 +315,6 @@ export default function TicketsPage() {
                     <Badge className={statusStyles[ticket.status]} variant="outline">
                       {ticket.status.replace("_", " ")}
                     </Badge>
-                    <Badge variant="secondary">{ticket.priority}</Badge>
                   </div>
                   <h3 className="text-base font-semibold md:text-lg">{ticket.title}</h3>
                   <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
@@ -233,7 +336,8 @@ export default function TicketsPage() {
                   <p className="pt-2">Chat ID: {ticket.chatId.slice(0, 8)}…</p>
                 </div>
               </button>
-            ))}
+              ))
+            )}
           </div>
         </section>
       </div>
@@ -254,7 +358,6 @@ export default function TicketsPage() {
                   <Badge className={statusStyles[selectedTicket.status]} variant="outline">
                     {selectedTicket.status.replace("_", " ")}
                   </Badge>
-                  <Badge variant="secondary">{selectedTicket.priority}</Badge>
                   <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                     Ticket {selectedTicket.id.slice(0, 8)}
                   </span>
@@ -267,7 +370,6 @@ export default function TicketsPage() {
 
               <div className="grid gap-4 text-sm md:grid-cols-2">
                 <InfoBlock label="Status" value={selectedTicket.status.replace("_", " ")} />
-                <InfoBlock label="Priority" value={selectedTicket.priority} />
                 <InfoBlock label="Requester" value={selectedTicket.requesterName} />
                 <InfoBlock label="Chat ID" value={selectedTicket.chatId} />
                 <InfoBlock label="User ID" value={selectedTicket.userId} />
@@ -316,19 +418,21 @@ export default function TicketsPage() {
               <DialogFooter className="gap-3">
                 <Button
                   className="rounded-full"
-                  onClick={() => updateSelectedTicket("resolved")}
+                  disabled={updatingTicketId === selectedTicket.id}
+                  onClick={() => void updateSelectedTicket("resolve")}
                   variant="default"
                 >
                   <CircleCheck className="size-4" />
-                  Resolve ticket
+                  {updatingTicketId === selectedTicket.id ? "Updating..." : "Resolve ticket"}
                 </Button>
                 <Button
                   className="rounded-full"
-                  onClick={() => updateSelectedTicket("closed")}
+                  disabled={updatingTicketId === selectedTicket.id}
+                  onClick={() => void updateSelectedTicket("close")}
                   variant="outline"
                 >
                   <CircleX className="size-4" />
-                  Close ticket
+                  {updatingTicketId === selectedTicket.id ? "Updating..." : "Close ticket"}
                 </Button>
               </DialogFooter>
             </>
