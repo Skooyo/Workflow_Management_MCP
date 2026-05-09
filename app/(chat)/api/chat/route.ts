@@ -501,7 +501,7 @@ export async function POST(request: Request) {
                 .optional()
                 .describe("S = mandatory standard, G = guidance"),
               doc_type: z
-                .enum(["rmit", "bcm", "op_risk"])
+                .enum(["rmit", "bcm", "op_risk", "dr_handbook"])
                 .optional()
                 .describe("Scope to one document"),
               use_case_tag: z
@@ -509,7 +509,7 @@ export async function POST(request: Request) {
                 .optional()
                 .describe("dr = disaster recovery, compliance = regulatory"),
               chunk_type: z
-                .enum(["policy", "notification_rule", "scenario"])
+                .enum(["policy", "notification_rule", "scenario", "procedure", "reference", "overview"])
                 .optional()
                 .describe("Type of chunk to search"),
             }),
@@ -536,7 +536,7 @@ export async function POST(request: Request) {
                 .optional()
                 .describe("S = mandatory standard, G = guidance"),
               doc_type: z
-                .enum(["rmit", "bcm", "op_risk"])
+                .enum(["rmit", "bcm", "op_risk", "dr_handbook"])
                 .optional()
                 .describe("Scope to one document"),
               use_case_tag: z
@@ -544,7 +544,7 @@ export async function POST(request: Request) {
                 .optional()
                 .describe("dr = disaster recovery, compliance = regulatory"),
               chunk_type: z
-                .enum(["policy", "notification_rule", "scenario"])
+                .enum(["policy", "notification_rule", "scenario", "procedure", "reference", "overview"])
                 .optional()
                 .describe("Type of chunk to search"),
             }),
@@ -563,7 +563,7 @@ export async function POST(request: Request) {
                   "Exact paragraph ID e.g. 'S 10.32', 'G 9.4', 'LOD-3', 'BCM-SCENARIO-1'"
                 ),
               doc_type: z
-                .enum(["rmit", "bcm", "op_risk"])
+                .enum(["rmit", "bcm", "op_risk", "dr_handbook"])
                 .optional()
                 .describe("Scope to one document to avoid cross-doc conflicts"),
             }),
@@ -586,7 +586,7 @@ export async function POST(request: Request) {
               "or when a broad topic query needs to be scoped to a specific section.",
             inputSchema: z.object({
               doc_code: z
-                .enum(["rmit_nov25", "bcm_dec22", "op_risk_may16"])
+                .enum(["rmit_nov25", "bcm_dec22", "op_risk_may16", "dr_handbook_v1"])
                 .optional()
                 .describe(
                   "Filter by document: rmit_nov25, bcm_dec22, op_risk_may16. " +
