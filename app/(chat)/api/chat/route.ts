@@ -31,7 +31,6 @@ import { updateDocument } from "@/lib/ai/tools/update-document";
 import { isProductionEnvironment } from "@/lib/constants";
 import {
   createStreamId,
-  createTicket,
   deleteChatById,
   getChatById,
   getMessagesByChatId,
@@ -47,23 +46,20 @@ import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
 
-export const maxDuration = 60;
-
 const MCP_SERVER_URL = process.env.MCP_SERVER_URL || "http://127.0.0.1:8001/mcp";
 
 let mcpClient: Client | null = null;
 
 async function getMcpClient(): Promise<Client> {
   if (!mcpClient) {
-    const transport = new StreamableHTTPClientTransport(
-      new URL(MCP_SERVER_URL)
-    );
+    const transport = new StreamableHTTPClientTransport(new URL(MCP_SERVER_URL));
     mcpClient = new Client({
       name: "nextjs-chatbot",
       version: "1.0.0",
     });
     await mcpClient.connect(transport);
   }
+
   return mcpClient;
 }
 
@@ -265,18 +261,12 @@ const troubleshootViaMCP = async (): Promise<string> => {
   }
 };
 
-const escalateViaMCP = async ({
-  issue_description,
-}: {
-  issue_description: string;
-}): Promise<string> => {
+const escalateViaMCP = async (payload: Record<string, unknown>): Promise<string> => {
   try {
     const client = await getMcpClient();
     const response = await client.callTool({
       name: "create_escalation_ticket",
-      arguments: {
-        issue_description,
-      },
+      arguments: payload,
     });
     return JSON.stringify(response, null, 2);
   } catch (error) {
@@ -607,14 +597,49 @@ export async function POST(request: Request) {
 
           create_escalation_ticket: tool({
             description:
-              "Call the MCP escalation endpoint to verify ticket creation connectivity. " +
-              "Use this for a quick test of the helpdesk escalation integration.",
-            inputSchema: z.object({
-              issue_description: z
-                .string()
-                .describe("A brief description of the issue to escalate"),
-            }),
-            execute: async (input) => escalateViaMCP(input),
+              "Create an escalation ticket using MCP. The tool accepts flexible field names and auto-fills chat_id and user_id.",
+            inputSchema: z
+              .object({
+                chat_id: z.string().uuid().optional(),
+                user_id: z.string().uuid().optional(),
+                chatId: z.string().uuid().optional(),
+                userId: z.string().uuid().optional(),
+                issue_description: z.string().min(1).max(5000).optional(),
+                issueDescription: z.string().min(1).max(5000).optional(),
+                description: z.string().min(1).max(5000).optional(),
+                issue: z.string().min(1).max(200).optional(),
+                summary: z.string().min(1).max(200).optional(),
+              })
+              .passthrough(),
+            execute: async (input) => {
+              const raw = (input as Record<string, unknown>) ?? {};
+
+              // Accept both snake_case and camelCase, and fallback to current chat/session
+              const chatId = (raw.chat_id ?? raw.chatId) ?? id;
+              const userId = (raw.user_id ?? raw.userId) ?? session?.user?.id;
+
+              if (!chatId || !userId) {
+                return `Missing chat_id or user_id (chat_id=${String(chatId)}, user_id=${String(userId)})`;
+              }
+
+              const issueDescription =
+                (raw.issue_description ??
+                  raw.issueDescription ??
+                  raw.description ??
+                  raw.issue ??
+                  raw.summary) ??
+                "Printer not printing; job stuck in queue.";
+
+              const normalized: Record<string, unknown> = {
+                chat_id: String(chatId),
+                user_id: String(userId),
+                issue_description: String(issueDescription),
+              };
+
+              const mcpResponse = await escalateViaMCP(normalized);
+
+              return mcpResponse;
+            },
           }),
           },
           experimental_telemetry: {

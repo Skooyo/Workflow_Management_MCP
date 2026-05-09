@@ -1,10 +1,9 @@
 import { z } from "zod";
 import { auth } from "@/app/(auth)/auth";
 import {
-  createTicket,
   getChatById,
   getTicketsByChatId,
-  getTicketsByUserId,
+  getTicketsByUserId
 } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
 
@@ -134,23 +133,4 @@ export async function POST(request: Request) {
   const mcpResponse = await escalateViaMCP({
     issue_description: payload.description,
   });
-
-  const ticket = await createTicket({
-    chatId: payload.chatId,
-    userId: session.user.id,
-    title: payload.title,
-    description: payload.description,
-    issue: payload.issue,
-    escalationReason: payload.escalationReason,
-    conversationHistory: payload.conversationHistory,
-    priority: payload.priority,
-  });
-
-  return Response.json(
-    {
-      ticket,
-      mcpResponse,
-    },
-    { status: 201 }
-  );
 }

@@ -633,54 +633,6 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
   }
 }
 
-// Ticket queries for IT Helpdesk escalation
-export async function createTicket({
-  chatId,
-  userId,
-  title,
-  description,
-  issue,
-  escalationReason,
-  conversationHistory,
-  priority = "medium",
-}: {
-  chatId: string;
-  userId: string;
-  title: string;
-  description: string;
-  issue: string;
-  escalationReason?: string;
-  conversationHistory: any;
-  priority?: "low" | "medium" | "high" | "critical";
-}) {
-  try {
-    const [newTicket] = await db
-      .insert(ticket)
-      .values({
-        id: generateUUID(),
-        chatId,
-        userId,
-        title,
-        description,
-        issue,
-        status: "open",
-        priority,
-        conversationHistory,
-        escalationReason,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .returning();
-
-    return newTicket;
-  } catch (_error) {
-    throw new ChatbotError(
-      "bad_request:database",
-      "Failed to create ticket"
-    );
-  }
-}
-
 export async function getTicketById({ id }: { id: string }) {
   try {
     return await db.select().from(ticket).where(eq(ticket.id, id));
