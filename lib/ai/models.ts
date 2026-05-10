@@ -1,4 +1,4 @@
-export const DEFAULT_CHAT_MODEL = "openai/gpt-5.2";
+export const DEFAULT_CHAT_MODEL = "anthropic/claude-sonnet-4";
 
 export const titleModel = {
   id: "mistral/mistral-small",
@@ -24,6 +24,13 @@ export type ChatModel = {
 };
 
 export const chatModels: ChatModel[] = [
+  {
+    id: "anthropic/claude-sonnet-4",
+    name: "Claude Sonnet 4",
+    provider: "anthropic",
+    description: "Advanced reasoning and coding.",
+    gatewayOrder: ["anthropic"],
+  },
   {
     id: "openai/gpt-5.2",
     name: "GPT-5.2",
