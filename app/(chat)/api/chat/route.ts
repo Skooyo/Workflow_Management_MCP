@@ -53,42 +53,75 @@ const MCP_SERVER_URL = process.env.MCP_SERVER_URL || "http://127.0.0.1:8001/mcp"
 
 let mcpClient: Client | null = null;
 
-// async function getMcpClient(): Promise<Client> {
-//   if (!mcpClient) {
-//     const transport = new StreamableHTTPClientTransport(
-//       new URL(MCP_SERVER_URL)
-//     );
-//     mcpClient = new Client({
-//       name: "nextjs-chatbot",
-//       version: "1.0.0",
-//     });
-//     await mcpClient.connect(transport);
-//   }
-//   return mcpClient;
-// }
 async function getMcpClient(): Promise<Client> {
-  if (mcpClient) {
-    try {
-      // Ping to verify connection is still alive
-      await mcpClient.listTools();
-      return mcpClient;
-    } catch {
-      // Session is dead — reset and reconnect
-      console.log("[MCP] Session expired, reconnecting...");
-      mcpClient = null;
-    }
+  if (!mcpClient) {
+    const transport = new StreamableHTTPClientTransport(
+      new URL(MCP_SERVER_URL)
+    );
+    mcpClient = new Client({
+      name: "nextjs-chatbot",
+      version: "1.0.0",
+    });
+    await mcpClient.connect(transport);
+  }
+  return mcpClient;
+}
+
+const HELPDESK_KEYWORDS = [
+  "printer",
+  "print queue",
+  "printer offline",
+  "print queue stuck",
+  "access denied",
+  "login failure",
+  "cannot login",
+  "password rejected",
+  "email not syncing",
+  "outlook",
+  "network drive",
+  "account locked",
+  "desktop freezing",
+  "high disk usage",
+  "cannot print",
+  "offline device",
+  "stuck print job",
+];
+
+function inferHelpdeskFilters(question: string) {
+  const normalized = question.toLowerCase();
+  return HELPDESK_KEYWORDS.some((keyword) => normalized.includes(keyword));
+}
+
+function applySearchDefaults({
+  question,
+  req_type,
+  doc_type,
+  use_case_tag,
+  chunk_type,
+}: {
+  question: string;
+  req_type?: string;
+  doc_type?: string;
+  use_case_tag?: string;
+  chunk_type?: string;
+}) {
+  if (inferHelpdeskFilters(question)) {
+    return {
+      question,
+      ...(req_type && { req_type }),
+      doc_type: "it_helpdesk",
+      use_case_tag: "troubleshooting",
+      chunk_type: "troubleshooting",
+    };
   }
 
-  const transport = new StreamableHTTPClientTransport(
-    new URL(MCP_SERVER_URL)
-  );
-  mcpClient = new Client({
-    name: "nextjs-chatbot",
-    version: "1.0.0",
-  });
-  await mcpClient.connect(transport);
-  console.log("[MCP] Connected to:", MCP_SERVER_URL);
-  return mcpClient;
+  return {
+    question,
+    ...(req_type && { req_type }),
+    ...(doc_type && { doc_type }),
+    ...(use_case_tag && { use_case_tag }),
+    ...(chunk_type && { chunk_type }),
+  };
 }
 
 function getStreamContext() {
@@ -172,22 +205,18 @@ const searchDocuments = async ({
     const response = await client.callTool({
       name: "search_documents",
       arguments: {
-        question,
         top_k,
-        ...(req_type     && { req_type }),
-        ...(doc_type     && { doc_type }),
-        ...(use_case_tag && { use_case_tag }),
-        ...(chunk_type   && { chunk_type }),
+        ...applySearchDefaults({
+          question,
+          req_type,
+          doc_type,
+          use_case_tag,
+          chunk_type,
+        }),
       },
     });
     return JSON.stringify(response, null, 2);
   } catch (error) {
-    // If session expired mid-call, reset client so next call reconnects
-    if (error instanceof Error && 
-        (error.message.includes("session") || error.message.includes("Session"))) {
-      console.log("[MCP] Resetting client due to session error");
-      mcpClient = null;
-    }
     return `Error searching documents: ${error instanceof Error ? error.message : String(error)}`;
   }
 };
@@ -212,23 +241,19 @@ const searchDocumentsHybrid = async ({
     const response = await client.callTool({
       name: "search_documents_hybrid",
       arguments: {
-        question,
         top_k,
-        ...(req_type     && { req_type }),
-        ...(doc_type     && { doc_type }),
-        ...(use_case_tag && { use_case_tag }),
-        ...(chunk_type   && { chunk_type }),
+        ...applySearchDefaults({
+          question,
+          req_type,
+          doc_type,
+          use_case_tag,
+          chunk_type,
+        }),
       },
     });
     return JSON.stringify(response, null, 2);
   } catch (error) {
-    // If session expired mid-call, reset client so next call reconnects
-    if (error instanceof Error && 
-        (error.message.includes("session") || error.message.includes("Session"))) {
-      console.log("[MCP] Resetting client due to session error");
-      mcpClient = null;
-    }
-    return `Error searching documents: ${error instanceof Error ? error.message : String(error)}`;
+    return `Error in hybrid search: ${error instanceof Error ? error.message : String(error)}`;
   }
 };
 
@@ -250,13 +275,7 @@ const getChunk = async ({
     });
     return JSON.stringify(response, null, 2);
   } catch (error) {
-    // If session expired mid-call, reset client so next call reconnects
-    if (error instanceof Error && 
-        (error.message.includes("session") || error.message.includes("Session"))) {
-      console.log("[MCP] Resetting client due to session error");
-      mcpClient = null;
-    }
-    return `Error searching documents: ${error instanceof Error ? error.message : String(error)}`;
+    return `Error fetching chunk: ${error instanceof Error ? error.message : String(error)}`;
   }
 };
 
@@ -269,13 +288,7 @@ const getDocuments = async (): Promise<string> => {
     });
     return JSON.stringify(response, null, 2);
   } catch (error) {
-    // If session expired mid-call, reset client so next call reconnects
-    if (error instanceof Error && 
-        (error.message.includes("session") || error.message.includes("Session"))) {
-      console.log("[MCP] Resetting client due to session error");
-      mcpClient = null;
-    }
-    return `Error searching documents: ${error instanceof Error ? error.message : String(error)}`;
+    return `Error fetching documents: ${error instanceof Error ? error.message : String(error)}`;
   }
 };
 
@@ -294,28 +307,7 @@ const getSections = async ({
     });
     return JSON.stringify(response, null, 2);
   } catch (error) {
-    // If session expired mid-call, reset client so next call reconnects
-    if (error instanceof Error && 
-        (error.message.includes("session") || error.message.includes("Session"))) {
-      console.log("[MCP] Resetting client due to session error");
-      mcpClient = null;
-    }
-    return `Error searching documents: ${error instanceof Error ? error.message : String(error)}`;
-  }
-};
-
-const troubleshootViaMCP = async (): Promise<string> => {
-  try {
-    const client = await getMcpClient();
-    const response = await client.callTool({
-      name: "troubleshoot",
-      arguments: {},
-    });
-    return JSON.stringify(response, null, 2);
-  } catch (error) {
-    return `Error searching troubleshooting database: ${
-      error instanceof Error ? error.message : String(error)
-    }`;
+    return `Error fetching sections: ${error instanceof Error ? error.message : String(error)}`;
   }
 };
 
@@ -472,7 +464,6 @@ export async function POST(request: Request) {
             "getChunk",
             "getDocuments",
             "getSections",
-            "troubleshoot",
             "create_escalation_ticket",
           ],
           providerOptions: {
@@ -535,13 +526,14 @@ export async function POST(request: Request) {
             // phase 2 RAG tools with enhanced filtering and hybrid search start ---
             searchDocuments: tool({
             description:
-              "Semantic search over BNM regulatory documents using natural language. " +
-              "Best for conceptual questions about DR, BCM, compliance, and operational risk. " +
+              "Semantic search over BNM documents and IT helpdesk troubleshooting using natural language. " +
+              "Use this for conceptual questions about DR, BCM, compliance, operational risk, and user support issues. " +
+              "Printer, print queue, access denied, login, email, network drive, and account lockout issues should route to helpdesk. " +
               "Apply filters to scope results: " +
-              "doc_type ('rmit','bcm','op_risk'), " +
-              "use_case_tag ('dr','compliance'), " +
+              "doc_type ('rmit','bcm','op_risk','dr_handbook','it_helpdesk'), " +
+              "use_case_tag ('dr','compliance','troubleshooting'), " +
               "req_type ('S' mandatory, 'G' guidance), " +
-              "chunk_type ('policy','notification_rule','scenario').",
+              "chunk_type ('policy','notification_rule','scenario','procedure','troubleshooting','reference','overview').",
             inputSchema: z.object({
               question: z
                 .string()
@@ -555,15 +547,15 @@ export async function POST(request: Request) {
                 .optional()
                 .describe("S = mandatory standard, G = guidance"),
               doc_type: z
-                .enum(["rmit", "bcm", "op_risk", "dr_handbook"])
+                .enum(["rmit", "bcm", "op_risk", "dr_handbook", "it_helpdesk"])
                 .optional()
                 .describe("Scope to one document"),
               use_case_tag: z
-                .enum(["dr", "compliance"])
+                .enum(["dr", "compliance", "troubleshooting"])
                 .optional()
-                .describe("dr = disaster recovery, compliance = regulatory"),
+                .describe("dr = disaster recovery, compliance = regulatory, troubleshooting = IT helpdesk"),
               chunk_type: z
-                .enum(["policy", "notification_rule", "scenario", "procedure", "reference", "overview"])
+                .enum(["policy", "notification_rule", "scenario", "procedure", "troubleshooting", "reference", "overview"])
                 .optional()
                 .describe("Type of chunk to search"),
             }),
@@ -573,9 +565,9 @@ export async function POST(request: Request) {
           searchDocumentsHybrid: tool({
             description:
               "Hybrid search combining semantic + BM25 keyword matching. " +
-              "Use ONLY when query contains exact regulatory codes or acronyms: " +
+              "Use ONLY when query contains exact regulatory codes, acronyms, or helpdesk keywords: " +
               "paragraph IDs (S 10.32, G 9.4), LoD codes (LOD-3, LOD-CYBER), " +
-              "or acronyms (RTO, MTD, BCP, DRP, CMT). " +
+              "acronyms (RTO, MTD, BCP, DRP, CMT), or phrases like printer offline, print queue stuck, or access denied. " +
               "For general natural language questions use searchDocuments instead.",
             inputSchema: z.object({
               question: z
@@ -590,15 +582,15 @@ export async function POST(request: Request) {
                 .optional()
                 .describe("S = mandatory standard, G = guidance"),
               doc_type: z
-                .enum(["rmit", "bcm", "op_risk", "dr_handbook"])
+                .enum(["rmit", "bcm", "op_risk", "dr_handbook", "it_helpdesk"])
                 .optional()
                 .describe("Scope to one document"),
               use_case_tag: z
-                .enum(["dr", "compliance"])
+                .enum(["dr", "compliance", "troubleshooting"])
                 .optional()
-                .describe("dr = disaster recovery, compliance = regulatory"),
+                .describe("dr = disaster recovery, compliance = regulatory, troubleshooting = IT helpdesk"),
               chunk_type: z
-                .enum(["policy", "notification_rule", "scenario", "procedure", "reference", "overview"])
+                .enum(["policy", "notification_rule", "scenario", "procedure", "troubleshooting", "reference", "overview"])
                 .optional()
                 .describe("Type of chunk to search"),
             }),
@@ -617,7 +609,7 @@ export async function POST(request: Request) {
                   "Exact paragraph ID e.g. 'S 10.32', 'G 9.4', 'LOD-3', 'BCM-SCENARIO-1'"
                 ),
               doc_type: z
-                .enum(["rmit", "bcm", "op_risk", "dr_handbook"])
+                .enum(["rmit", "bcm", "op_risk"])
                 .optional()
                 .describe("Scope to one document to avoid cross-doc conflicts"),
             }),
@@ -640,7 +632,7 @@ export async function POST(request: Request) {
               "or when a broad topic query needs to be scoped to a specific section.",
             inputSchema: z.object({
               doc_code: z
-                .enum(["rmit_nov25", "bcm_dec22", "op_risk_may16", "dr_handbook_v1"])
+                .enum(["rmit_nov25", "bcm_dec22", "op_risk_may16"])
                 .optional()
                 .describe(
                   "Filter by document: rmit_nov25, bcm_dec22, op_risk_may16. " +
@@ -651,14 +643,6 @@ export async function POST(request: Request) {
           }), // phase 2 RAG tools with enhanced filtering and hybrid search end ---
 
           // IT Helpdesk escalation tools
-          troubleshoot: tool({
-            description:
-              "Call the MCP troubleshooting endpoint to verify the backend connection. " +
-              "Use this for a quick test of the helpdesk troubleshooting integration.",
-            inputSchema: z.object({}),
-            execute: troubleshootViaMCP,
-          }),
-
           create_escalation_ticket: tool({
             description:
               "Call the MCP escalation endpoint to verify ticket creation connectivity. " +
