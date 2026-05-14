@@ -110,6 +110,7 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
     id: chatId,
     messages: initialMessages,
     generateId: generateUUID,
+    experimental_throttle: 50,
     sendAutomaticallyWhen: ({ messages: currentMessages }) => {
       const lastMessage = currentMessages.at(-1);
       return (

@@ -4,6 +4,7 @@ import {
   createUIMessageStream,
   createUIMessageStreamResponse,
   generateId,
+  smoothStream,
   stepCountIs,
   streamText,
   tool,
@@ -462,6 +463,7 @@ export async function POST(request: Request) {
           model: getLanguageModel(chatModel),
           system: systemPrompt({ requestHints, supportsTools }),
           messages: modelMessages,
+          experimental_transform: smoothStream({ chunking: "word", delayInMs: 15 }),
           stopWhen: stepCountIs(5),
           experimental_activeTools: [
             "searchDocuments",
