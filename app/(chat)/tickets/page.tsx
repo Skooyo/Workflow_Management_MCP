@@ -327,7 +327,6 @@ export default function TicketsPage() {
                     Issue
                   </p>
                   <p className="font-medium">{ticket.issue}</p>
-                  <p className="pt-2 text-muted-foreground">Requester: {ticket.requesterName}</p>
                 </div>
 
                 <div className="space-y-1 text-sm text-muted-foreground">
@@ -364,13 +363,12 @@ export default function TicketsPage() {
                 </div>
                 <DialogTitle className="text-xl md:text-2xl">{selectedTicket.title}</DialogTitle>
                 <DialogDescription className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                  {selectedTicket.issue} · {selectedTicket.requesterName} · Updated {formatDate(selectedTicket.updatedAt)}
+                  {selectedTicket.issue} · Updated {formatDate(selectedTicket.updatedAt)}
                 </DialogDescription>
               </DialogHeader>
 
               <div className="grid gap-4 text-sm md:grid-cols-2">
                 <InfoBlock label="Status" value={selectedTicket.status.replace("_", " ")} />
-                <InfoBlock label="Requester" value={selectedTicket.requesterName} />
                 <InfoBlock label="Chat ID" value={selectedTicket.chatId} />
                 <InfoBlock label="User ID" value={selectedTicket.userId} />
                 <InfoBlock label="Created" value={formatDate(selectedTicket.createdAt)} />
@@ -381,25 +379,6 @@ export default function TicketsPage() {
                 />
               </div>
 
-              <div className="space-y-3">
-                <SectionHeading>Conversation history</SectionHeading>
-                <div className="space-y-2 rounded-2xl border border-border/60 bg-slate-950/3 p-4 text-sm dark:bg-white/3">
-                  {selectedTicket.conversationHistory.map((entry, index) => (
-                    <div key={`${selectedTicket.id}-conversation-${index}`} className="rounded-xl border border-border/60 bg-background/90 p-3 shadow-sm">
-                      <p className="text-xs uppercase tracking-[0.16em] text-sky-600 dark:text-sky-400">
-                        {typeof entry === "object" && entry !== null && "role" in entry
-                          ? String((entry as { role?: string }).role)
-                          : "message"}
-                      </p>
-                      <p className="mt-1 leading-6 text-foreground">
-                        {typeof entry === "object" && entry !== null && "text" in entry
-                          ? String((entry as { text?: string }).text)
-                          : JSON.stringify(entry)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
 
               <div className="space-y-3">
                 <SectionHeading>Description</SectionHeading>
