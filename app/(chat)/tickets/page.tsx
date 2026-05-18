@@ -460,8 +460,10 @@ function SectionHeading({ children }: { children: ReactNode }) {
 function formatDate(date: Date | null) {
   if (!date) return "Not available";
 
+  const offsetDate = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+
   return new Intl.DateTimeFormat("en-MY", {
     dateStyle: "medium",
     timeStyle: "short",
-  }).format(date);
+  }).format(offsetDate);
 }
